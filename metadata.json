@@ -2,5 +2,7 @@
   "name": "Botica Atlas",
   "description": "Catálogo inteligente de farmacias y productos de higiene y cuidado personal con mapa OpenStreetMap sincronizado a Google Maps, pronóstico meteorológico en tiempo real y asistente Gemini.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

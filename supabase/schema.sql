@@ -62,6 +62,9 @@ create policy "Sin acceso publico settings"
   on public.app_settings for all
   using (false);
 
+-- Eliminar cualquier registro anterior de México/CDMX si existiera y cargar datos iniciales en Paraguay
+delete from public.pharmacies where neighborhood ilike '%CDMX%';
+
 -- Datos iniciales en Paraguay (6 farmacias y 18 productos de higiene y cuidado personal)
 insert into public.pharmacies (id, name, address, neighborhood, contact, hours, is_24h, latitude, longitude, created_at)
 values
