@@ -11,6 +11,8 @@ interface LeafletOsmMapProps {
   interactivePinMode?: boolean;
   onMapClickCoordinates?: (lat: number, lng: number) => void;
   heightClass?: string;
+  fitAllKey?: number;
+  initialFitCountry?: boolean;
 }
 
 function createPinIcon(active: boolean, isCustomPin = false): L.DivIcon {
@@ -50,6 +52,8 @@ export function LeafletOsmMap({
   interactivePinMode = false,
   onMapClickCoordinates,
   heightClass = 'h-[420px]',
+  fitAllKey = 0,
+  initialFitCountry = false,
 }: LeafletOsmMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -58,6 +62,8 @@ export function LeafletOsmMap({
   const onClickRef = useRef(onMapClickCoordinates);
   const onSelectRef = useRef(onSelectPharmacy);
   const interactiveModeRef = useRef(interactivePinMode);
+  const hasDoneInitialFitRef = useRef(false);
+  const lastSelectedIdRef = useRef<string | null>(selectedPharmacyId);
 
   onClickRef.current = onMapClickCoordinates;
   onSelectRef.current = onSelectPharmacy;
@@ -66,13 +72,11 @@ export function LeafletOsmMap({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    const initialCenter: [number, number] = pharmacies[0]
-      ? [pharmacies[0].latitude, pharmacies[0].longitude]
-      : [19.415, -99.168];
+    const initialCenter: [number, number] = [-25.2867, -57.635];
 
     const map = L.map(containerRef.current, {
       center: initialCenter,
-      zoom: 12,
+      zoom: initialFitCountry ? 6 : 12,
       scrollWheelZoom: true,
     });
 
@@ -137,21 +141,39 @@ export function LeafletOsmMap({
       });
       marker.addTo(layerGroup);
 
-      if (isSelected && !syncedPin) {
+      if (isSelected && !syncedPin && (!initialFitCountry || hasDoneInitialFitRef.current)) {
         marker.openPopup();
       }
     });
-  }, [pharmacies, selectedPharmacyId, syncedPin]);
+
+    if (initialFitCountry && !hasDoneInitialFitRef.current && pharmacies.length > 0) {
+      hasDoneInitialFitRef.current = true;
+      const bounds = L.latLngBounds(pharmacies.map((p) => [p.latitude, p.longitude] as [number, number]));
+      map.fitBounds(bounds, { padding: [36, 36], maxZoom: 12 });
+    }
+  }, [pharmacies, selectedPharmacyId, syncedPin, initialFitCountry]);
+
+  // Ajustar vista a todo Paraguay cuando el usuario pulsa "Ver todo Paraguay"
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || fitAllKey === 0 || pharmacies.length === 0) return;
+    const bounds = L.latLngBounds(pharmacies.map((p) => [p.latitude, p.longitude] as [number, number]));
+    map.fitBounds(bounds, { padding: [36, 36], maxZoom: 12 });
+  }, [fitAllKey, pharmacies]);
 
   // Centrar suavemente cuando cambia la farmacia seleccionada
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !selectedPharmacyId) return;
+    if (initialFitCountry && lastSelectedIdRef.current === selectedPharmacyId && fitAllKey === 0) {
+      return;
+    }
+    lastSelectedIdRef.current = selectedPharmacyId;
     const target = pharmacies.find((p) => p.id === selectedPharmacyId);
     if (target) {
       map.flyTo([target.latitude, target.longitude], 14, { duration: 0.65 });
     }
-  }, [selectedPharmacyId, pharmacies]);
+  }, [selectedPharmacyId, pharmacies, initialFitCountry, fitAllKey]);
 
   // Pin sincronizado personalizado para transferencia en tiempo real a Google Maps
   useEffect(() => {

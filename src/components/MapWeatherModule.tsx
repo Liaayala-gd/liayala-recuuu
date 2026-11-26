@@ -24,7 +24,7 @@ import {
   buildGoogleMapsSearchUrl,
   buildOpenStreetMapUrl,
   formatCoordinates,
-  formatCurrencyMXN,
+  formatCurrencyPYG,
 } from '../utils/maps';
 import { LeafletOsmMap } from './LeafletOsmMap';
 
@@ -50,6 +50,7 @@ export function MapWeatherModule({
   const [syncedPin, setSyncedPin] = useState<{ lat: number; lng: number } | null>(null);
   const [showGoogleEmbed, setShowGoogleEmbed] = useState(true);
   const [copiedCoords, setCopiedCoords] = useState(false);
+  const [fitAllKey, setFitAllKey] = useState(0);
 
   // Estado del clima real (Open-Meteo vía backend)
   const [weather, setWeather] = useState<WeatherForecastResponse | null>(null);
@@ -132,6 +133,17 @@ export function MapWeatherModule({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setSyncedPin(null);
+              setFitAllKey((k) => k + 1);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 whitespace-nowrap shrink-0 cursor-pointer min-h-[40px]"
+          >
+            Ver todo Paraguay
+          </button>
+
           <button
             type="button"
             onClick={() => setInteractivePinMode((v) => !v)}
@@ -293,6 +305,8 @@ export function MapWeatherModule({
             interactivePinMode={interactivePinMode}
             onMapClickCoordinates={handleMapClickCoordinates}
             heightClass="h-[420px]"
+            fitAllKey={fitAllKey}
+            initialFitCountry
           />
         </div>
 
@@ -378,7 +392,7 @@ export function MapWeatherModule({
                             </p>
                           </div>
                           <span className="font-mono font-semibold text-slate-900 tabular-nums shrink-0">
-                            {formatCurrencyMXN(item.price)}
+                            {formatCurrencyPYG(item.price)}
                           </span>
                         </li>
                       );

@@ -15,6 +15,7 @@ import {
   deletePharmacy,
   deleteProduct,
   ensureSeededDatabase,
+  getLastSeedError,
   getStorageMode,
   listPharmacies,
   listProducts,
@@ -174,6 +175,7 @@ async function startServer() {
       ok: true,
       storageMode: getStorageMode(),
       authenticated: auth.authenticated,
+      seedError: getLastSeedError(),
     });
   });
 

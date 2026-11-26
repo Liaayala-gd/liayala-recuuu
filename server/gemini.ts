@@ -107,7 +107,8 @@ async function executeToolCall(
           marca: pr.brand,
           categoria: pr.category,
           presentacion: pr.presentation,
-          precioMXN: pr.price,
+          precioPYG: pr.price,
+          moneda: 'Guaraníes (PYG / Gs.)',
           stock: pr.stock,
           disponible: pr.available && pr.stock > 0,
           farmacia: ph?.name ?? 'Desconocida',
@@ -338,13 +339,13 @@ export async function runGeminiAssistant(input: ChatTurnInput): Promise<{
   const selected = pharmacies.find((p) => p.id === input.selectedPharmacyId);
 
   const systemInstruction = [
-    'Eres el asistente inteligente de Botica Atlas, una red de farmacias especializada en higiene y cuidado personal.',
+    'Eres el asistente inteligente de Botica Atlas, una red de farmacias en Paraguay especializada en higiene y cuidado personal.',
     'Responde siempre en español claro, útil, empático y bien estructurado.',
     'Reglas fundamentales:',
     '1. Cuando el usuario pregunte por productos, disponibilidad, precios, stock, sucursales u horarios, USA las herramientas (buscar_productos_y_farmacias o listar_farmacias) para consultar los datos reales del sistema. Nunca inventes stock ni precios.',
     '2. Si el usuario pregunta por el clima de una sucursal o menciona salir bajo lluvia/sol, puedes usar consultar_clima_farmacia si aporta contexto real, y además responder recomendaciones prácticas generales y responsables de higiene, cuidado personal o prevención.',
     '3. Nunca des diagnósticos médicos definitivos; para síntomas médicos graves sugiere acudir con un profesional de la salud.',
-    '4. Presenta nombres de farmacias, direcciones, horarios, precios en MXN y cantidades disponibles de forma clara.',
+    '4. Presenta nombres de farmacias, direcciones en Paraguay, horarios, precios en guaraníes (Gs. / PYG) y cantidades disponibles de forma clara.',
     selected
       ? `Contexto actual de la interfaz: el usuario tiene seleccionada la farmacia "${selected.name}" (${selected.address}, coordenadas ${selected.latitude}, ${selected.longitude}).`
       : 'No hay una farmacia seleccionada específicamente en este momento.',

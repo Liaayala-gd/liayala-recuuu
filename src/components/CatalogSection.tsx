@@ -5,7 +5,7 @@ import {
   type Pharmacy,
   type Product,
 } from '../../shared/types';
-import { formatCurrencyMXN } from '../utils/maps';
+import { formatCurrencyPYG } from '../utils/maps';
 
 interface CatalogSectionProps {
   pharmacies: Pharmacy[];
@@ -280,7 +280,7 @@ export function CatalogSection({
                   <div className="mt-4 border-t border-slate-100 pt-3.5">
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="font-mono text-lg font-semibold text-slate-900 tabular-nums">
-                        {formatCurrencyMXN(product.price)}
+                        {formatCurrencyPYG(product.price)}
                       </span>
                       <span
                         className={`text-xs font-semibold tabular-nums ${

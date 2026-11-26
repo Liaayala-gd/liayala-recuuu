@@ -22,7 +22,7 @@ export function HeroSection({
           <div className="flex flex-col justify-between lg:col-span-6 lg:py-2">
             <div>
               <p className="text-xs font-medium text-teal-700">
-                Red Metropolitana · Higiene y Cuidado Personal
+                Red Nacional Paraguay · Higiene y Cuidado Personal
               </p>
               <h1 className="mt-3 font-display text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl lg:text-[2.65rem] lg:leading-[1.12] [text-wrap:balance]">
                 Disponibilidad real en farmacias, mapa conectado y clima local

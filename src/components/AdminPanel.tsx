@@ -19,7 +19,7 @@ import {
 import {
   buildGoogleMapsSearchUrl,
   formatCoordinates,
-  formatCurrencyMXN,
+  formatCurrencyPYG,
 } from '../utils/maps';
 import { LeafletOsmMap } from './LeafletOsmMap';
 
@@ -37,10 +37,10 @@ const EMPTY_PHARMACY_FORM = {
   address: '',
   neighborhood: '',
   contact: '',
-  hours: 'Lun–Sáb 08:00–21:00 · Dom 09:00–19:00',
+  hours: 'Lun–Sáb 07:30–21:30 · Dom 09:00–19:00',
   is_24h: false,
-  latitude: 19.419,
-  longitude: -99.165,
+  latitude: -25.2819,
+  longitude: -57.6366,
 };
 
 const EMPTY_PRODUCT_FORM = {
@@ -50,7 +50,7 @@ const EMPTY_PRODUCT_FORM = {
   brand: '',
   category: 'Protección Solar' as ProductCategory,
   presentation: '',
-  price: 250,
+  price: 95000,
   stock: 10,
   available: true,
   description: '',
@@ -541,12 +541,12 @@ export function AdminPanel({
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700">Precio (MXN)</label>
+                    <label className="block text-xs font-semibold text-slate-700">Precio (Gs. / PYG)</label>
                     <input
                       required
                       type="number"
                       min="0"
-                      step="0.01"
+                      step="100"
                       value={productForm.price}
                       onChange={(e) =>
                         setProductForm((prev) => ({ ...prev, price: Number(e.target.value) }))
@@ -648,7 +648,7 @@ export function AdminPanel({
                       <td className="px-4 py-3 text-xs text-slate-600">{pr.category}</td>
                       <td className="px-4 py-3 text-xs text-slate-700">{ph?.name ?? '—'}</td>
                       <td className="px-4 py-3 text-right font-mono text-xs font-semibold text-slate-900 tabular-nums">
-                        {formatCurrencyMXN(pr.price)}
+                        {formatCurrencyPYG(pr.price)}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-xs text-slate-900 tabular-nums">
                         {pr.stock}
@@ -717,19 +717,19 @@ export function AdminPanel({
                     onChange={(e) =>
                       setPharmacyForm((prev) => ({ ...prev, name: e.target.value }))
                     }
-                    placeholder="Ej. Botica Narvarte"
+                    placeholder="Ej. Botica Villa Morra"
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700">Colonia / Zona</label>
+                  <label className="block text-xs font-semibold text-slate-700">Ciudad / Barrio</label>
                   <input
                     type="text"
                     value={pharmacyForm.neighborhood}
                     onChange={(e) =>
                       setPharmacyForm((prev) => ({ ...prev, neighborhood: e.target.value }))
                     }
-                    placeholder="Ej. Narvarte, CDMX"
+                    placeholder="Ej. Villa Morra, Asunción"
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -742,7 +742,7 @@ export function AdminPanel({
                     onChange={(e) =>
                       setPharmacyForm((prev) => ({ ...prev, address: e.target.value }))
                     }
-                    placeholder="Calle y número"
+                    placeholder="Calle, número o intersección"
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -755,7 +755,7 @@ export function AdminPanel({
                     onChange={(e) =>
                       setPharmacyForm((prev) => ({ ...prev, contact: e.target.value }))
                     }
-                    placeholder="+52 55 ..."
+                    placeholder="+595 21 ..."
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   />
                 </div>

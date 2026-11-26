@@ -5,6 +5,41 @@ import { CATEGORY_IMAGES, SEED_PHARMACIES, SEED_PRODUCTS } from './seedData.ts';
 
 let supabaseClient: SupabaseClient | null = null;
 let supabaseInitialized = false;
+let lastSeedError: string | null = null;
+let oldMexicoSeedBlockedByRls = false;
+let emptySeedBlockedByRls = false;
+let supabaseReadOnlyAnonKey = false;
+
+export function getLastSeedError(): string | null {
+  return lastSeedError;
+}
+
+function isWriteCapableSupabaseKey(key: string): boolean {
+  if (!key) return false;
+  if (key.startsWith('sb_publishable_')) return false;
+  if (key.startsWith('sb_secret_')) return true;
+  const parts = key.split('.');
+  if (parts.length === 3) {
+    try {
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as {
+        role?: string;
+      };
+      if (payload.role === 'anon') return false;
+    } catch {
+      // Si no es un JWT estándar, continuar normalmente
+    }
+  }
+  return true;
+}
+
+function formatSupabaseError(prefix: string, message: string): Error {
+  if (message.toLowerCase().includes('row-level security')) {
+    return new Error(
+      `${prefix}: Permiso denegado por RLS en Supabase. Verifica que SUPABASE_SERVICE_ROLE_KEY sea la clave secreta "service_role" (no la clave pública "anon").`
+    );
+  }
+  return new Error(`${prefix}: ${message}`);
+}
 
 // Almacenamiento en memoria cuando SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY aún no están definidos
 let memoryPharmacies: Pharmacy[] = SEED_PHARMACIES.map((p) => ({ ...p }));
@@ -38,6 +73,7 @@ function getSupabase(): SupabaseClient | null {
   const url = normalizeSupabaseUrl(process.env.SUPABASE_URL || '');
   const key = sanitizeEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY);
   if (!url || !key) return null;
+  supabaseReadOnlyAnonKey = !isWriteCapableSupabaseKey(key);
   if (!supabaseClient) {
     supabaseClient = createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -55,32 +91,74 @@ export async function ensureSeededDatabase(): Promise<void> {
   if (!sb || supabaseInitialized) return;
 
   try {
-    const { data, error } = await sb.from('pharmacies').select('id').limit(1);
+    const { data, error } = await sb
+      .from('pharmacies')
+      .select('id, neighborhood')
+      .limit(10);
     if (error) {
-      console.error('Supabase check error (verifica haber ejecutado supabase/schema.sql):', error.message);
+      lastSeedError = error.message;
+      supabaseInitialized = true;
       return;
     }
-    if (!data || data.length === 0) {
-      const { error: phError } = await sb.from('pharmacies').insert(SEED_PHARMACIES);
-      if (phError) {
-        console.error('Error al sembrar farmacias en Supabase:', phError.message);
+
+    const hasOldMexicoSeed = (data ?? []).some(
+      (row: { id: string; neighborhood?: string }) =>
+        row.id.startsWith('11111111-1111-4111-8111-') &&
+        (row.neighborhood || '').includes('CDMX')
+    );
+    const isEmpty = !data || data.length === 0;
+
+    if (isEmpty || hasOldMexicoSeed) {
+      if (supabaseReadOnlyAnonKey) {
+        oldMexicoSeedBlockedByRls = hasOldMexicoSeed;
+        emptySeedBlockedByRls = isEmpty;
+        lastSeedError =
+          'SUPABASE_SERVICE_ROLE_KEY corresponde a una clave pública "anon/publishable" de solo lectura; reemplázala por la clave secreta "service_role" para habilitar escrituras.';
+        supabaseInitialized = true;
         return;
       }
-      const { error: prError } = await sb.from('products').insert(SEED_PRODUCTS);
+
+      const { error: phError } = await sb
+        .from('pharmacies')
+        .upsert(SEED_PHARMACIES, { onConflict: 'id' });
+      if (phError) {
+        lastSeedError = phError.message;
+        const isRls = phError.message.toLowerCase().includes('row-level security');
+        if (isRls) {
+          supabaseReadOnlyAnonKey = true;
+          oldMexicoSeedBlockedByRls = hasOldMexicoSeed;
+          emptySeedBlockedByRls = isEmpty;
+          supabaseInitialized = true;
+        }
+        return;
+      }
+      const { error: prError } = await sb
+        .from('products')
+        .upsert(SEED_PRODUCTS, { onConflict: 'id' });
       if (prError) {
-        console.error('Error al sembrar productos en Supabase:', prError.message);
+        lastSeedError = prError.message;
+        const isRls = prError.message.toLowerCase().includes('row-level security');
+        if (isRls) {
+          supabaseReadOnlyAnonKey = true;
+          oldMexicoSeedBlockedByRls = hasOldMexicoSeed;
+          emptySeedBlockedByRls = isEmpty;
+          supabaseInitialized = true;
+        }
         return;
       }
     }
+    lastSeedError = null;
+    oldMexicoSeedBlockedByRls = false;
+    emptySeedBlockedByRls = false;
     supabaseInitialized = true;
   } catch (err) {
-    console.error('Error inicializando Supabase:', err);
+    lastSeedError = err instanceof Error ? err.message : String(err);
   }
 }
 
 export async function getAdminHash(): Promise<string | null> {
   const sb = getSupabase();
-  if (!sb) return memoryAdminHash;
+  if (!sb || supabaseReadOnlyAnonKey) return memoryAdminHash;
 
   const { data, error } = await sb
     .from('app_settings')
@@ -97,7 +175,7 @@ export async function getAdminHash(): Promise<string | null> {
 export async function setAdminHash(hash: string): Promise<void> {
   memoryAdminHash = hash;
   const sb = getSupabase();
-  if (!sb) return;
+  if (!sb || supabaseReadOnlyAnonKey) return;
 
   const { error } = await sb.from('app_settings').upsert(
     {
@@ -108,7 +186,7 @@ export async function setAdminHash(hash: string): Promise<void> {
     { onConflict: 'key' }
   );
   if (error) {
-    console.error('No se pudo guardar admin_passcode_hash en Supabase:', error.message);
+    lastSeedError = error.message;
   }
 }
 
@@ -120,8 +198,23 @@ export async function listPharmacies(): Promise<Pharmacy[]> {
   }
 
   const { data, error } = await sb.from('pharmacies').select('*').order('name', { ascending: true });
-  if (error) throw new Error(`Error al consultar farmacias en Supabase: ${error.message}`);
-  return (data ?? []) as Pharmacy[];
+  if (error) throw formatSupabaseError('Error al consultar farmacias en Supabase', error.message);
+
+  let rows = (data ?? []) as Pharmacy[];
+  if (rows.length === 0 && emptySeedBlockedByRls) {
+    rows = [...SEED_PHARMACIES].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  } else if (oldMexicoSeedBlockedByRls) {
+    const seedById = new Map(SEED_PHARMACIES.map((p) => [p.id, p]));
+    rows = rows
+      .map((row) => {
+        if ((row.neighborhood || '').includes('CDMX') && seedById.has(row.id)) {
+          return seedById.get(row.id)!;
+        }
+        return row;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  }
+  return rows;
 }
 
 export async function createPharmacy(
@@ -141,7 +234,7 @@ export async function createPharmacy(
   }
 
   const { data, error } = await sb.from('pharmacies').insert(record).select().single();
-  if (error) throw new Error(`Error al crear farmacia en Supabase: ${error.message}`);
+  if (error) throw formatSupabaseError('Error al crear farmacia en Supabase', error.message);
   return data as Pharmacy;
 }
 
@@ -165,7 +258,7 @@ export async function updatePharmacy(
     .eq('id', id)
     .select()
     .maybeSingle();
-  if (error) throw new Error(`Error al actualizar farmacia en Supabase: ${error.message}`);
+  if (error) throw formatSupabaseError('Error al actualizar farmacia en Supabase', error.message);
   return (data as Pharmacy | null) ?? null;
 }
 
@@ -181,7 +274,7 @@ export async function deletePharmacy(id: string): Promise<boolean> {
   }
 
   const { error, count } = await sb.from('pharmacies').delete({ count: 'exact' }).eq('id', id);
-  if (error) throw new Error(`Error al eliminar farmacia en Supabase: ${error.message}`);
+  if (error) throw formatSupabaseError('Error al eliminar farmacia en Supabase', error.message);
   return (count ?? 0) > 0;
 }
 
@@ -202,8 +295,14 @@ export async function listProducts(filters?: {
       .from('products')
       .select('*')
       .order('name', { ascending: true });
-    if (error) throw new Error(`Error al consultar productos en Supabase: ${error.message}`);
+    if (error) throw formatSupabaseError('Error al consultar productos en Supabase', error.message);
     items = (data ?? []) as Product[];
+    if (items.length === 0 && emptySeedBlockedByRls) {
+      items = [...SEED_PRODUCTS];
+    } else if (oldMexicoSeedBlockedByRls) {
+      const seedById = new Map(SEED_PRODUCTS.map((p) => [p.id, p]));
+      items = items.map((item) => seedById.get(item.id) ?? item);
+    }
   }
 
   if (filters?.category && filters.category !== 'Todas') {
@@ -253,7 +352,7 @@ export async function createProduct(
   }
 
   const { data, error } = await sb.from('products').insert(record).select().single();
-  if (error) throw new Error(`Error al crear producto en Supabase: ${error.message}`);
+  if (error) throw formatSupabaseError('Error al crear producto en Supabase', error.message);
   return data as Product;
 }
 
@@ -284,7 +383,7 @@ export async function updateProduct(
     .eq('id', id)
     .select()
     .maybeSingle();
-  if (error) throw new Error(`Error al actualizar producto en Supabase: ${error.message}`);
+  if (error) throw formatSupabaseError('Error al actualizar producto en Supabase', error.message);
   return (data as Product | null) ?? null;
 }
 
@@ -299,6 +398,6 @@ export async function deleteProduct(id: string): Promise<boolean> {
   }
 
   const { error, count } = await sb.from('products').delete({ count: 'exact' }).eq('id', id);
-  if (error) throw new Error(`Error al eliminar producto en Supabase: ${error.message}`);
+  if (error) throw formatSupabaseError('Error al eliminar producto en Supabase', error.message);
   return (count ?? 0) > 0;
 }

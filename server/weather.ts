@@ -35,7 +35,7 @@ export async function fetchWeatherForecast(
   url.searchParams.set('timezone', 'auto');
 
   const res = await fetch(url.toString(), {
-    signal: AbortSignal.timeout(8500),
+    signal: AbortSignal.timeout(15000),
     headers: { Accept: 'application/json' },
   });
 

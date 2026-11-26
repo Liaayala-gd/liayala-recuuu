@@ -18,10 +18,10 @@ export function formatCoordinates(lat: number, lng: number): string {
   return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
-export function formatCurrencyMXN(amount: number): string {
-  return new Intl.NumberFormat('es-MX', {
+export function formatCurrencyPYG(amount: number): string {
+  return new Intl.NumberFormat('es-PY', {
     style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
+    currency: 'PYG',
+    maximumFractionDigits: 0,
   }).format(amount);
 }
